@@ -6,15 +6,19 @@ import sys
 import time
 import requests
 import re
-from bs4 import BeautifulSoup
-from bs4 import SoupStrainer
+from re import error as RegexException
+from requests.models import Response
+from requests.exceptions import HTTPError
 
-TARGET_URL = "https://news.ycombinator.com/"
+TARGET_URL = "https://news.ycombinator.com"
 HOST = '127.0.0.1'
 PORT = 8080
-HEADERS = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:99.0) Gecko/20100101 Firefox/99.0'}
+HEADERS = {
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:99.0) Gecko/20100101 Firefox/99.0'}
 
 # timestamp function for logs.
+
+
 def get_time_stamp():
     return f"{HOST} - - [{str(datetime.datetime.fromtimestamp(time.time()).strftime('%d/%b/%Y %H:%M:%S'))}]"
 
@@ -29,68 +33,97 @@ class Handler(http.server.BaseHTTPRequestHandler):
     """
 
     def do_GET(self):
-        self.handle_headers()
-        self.modify_content()
+        response = self.do_request()
+        self.send_response(response.status_code, response.reason)
+        self.handle_headers(response.headers['content-type'])
+        try:
+            if modified_content := self.modify_content(content=response.text):
+                self.wfile.write(modified_content)
+            else:
+                print(f"{get_time_stamp()} Content was not modified.")
+                self.wfile.write(response.content)
+        except HTTPError as error:
+            print(f"{get_time_stamp()} Request call was not successful, reason: {error}")
 
-    def handle_headers(self):
-        self.send_response(200, "HTTP/1.1 Connection established")
-        if '.css?' in self.path:
-            self.send_header('Content-type', 'text/css')
-        elif '.js?' in self.path:
-            self.send_header('Content-type', 'application/javascript; ')
-        elif '.gif' in self.path:
-            self.send_header('Content-type', 'image/gif; ')
-        elif '.ico' in self.path:
-            self.send_header('Content-type', 'image/x-icon; ')
-        
-        else:
-            self.send_header('Content-type', 'text/html; charset=utf-8')
-        self.send_header('Proxy-Agent', 'Ultron Jr')
+    def handle_headers(self, content_type):
+        self.send_header('Content-Type', content_type)
+        self.send_header('Proxy-Agent', 'Master Ultron')
         self.end_headers()
 
-    def append_TM(self, content: list[str]):
-        reg_ex = re.compile(r"^(\b\w{6}\b)$", re.IGNORECASE) # compile a pattern for our target string for our convenience
-        new_content = []
-        for string in content:
-            if reg_ex.match(string): 
-                match_string = reg_ex.match(string).group();
-                if match_string.isalpha():
-                    string = reg_ex.sub(f'{match_string}&#x2122;', string, count=1)
-                    # print(reg_ex.sub('&#x2122;', match_string, count=1))
-            if string == f'a href="{TARGET_URL}">':
-                string = f'a href="https://{HOST}:{PORT}">'
-            if string == 'href="favicon.ico">':
-                string = f'href="{TARGET_URL}/favicon.ico">'
-            if string == 'src="y18.gif"':
-                string = f'src="{TARGET_URL}/y18.gif"'
-            if string == 'href="news.css?HTgGcPawXJ5mMASvvCyk">':
-                string = f'href="{TARGET_URL}/news.css?HTgGcPawXJ5mMASvvCyk">'
-            if string == "src='hn.js?HTgGcPawXJ5mMASvvCyk'>":
-                string = f'src="{TARGET_URL}/hn.js?HTgGcPawXJ5mMASvvCyk">'
-            new_content.append(string)
-        # print(new_content)
-        return new_content
-
-    def modify_content(self):
-        url = TARGET_URL + self.path[1:]
+    def do_request(self) -> Response:
+        url = f'{TARGET_URL}/{self.path[1:]}'
         try:
-            response = requests.get(url, headers=HEADERS)
-            if response.headers['Content-Type'] == 'text/html; charset=utf-8':            
-                split_html = re.split('(<[^>]*>|[\W]{1})', str(response.text))
-                print()
-                html_list = " ".join(split_html).strip().split(" ")
-                print(html_list)
-                modified_html = self.append_TM(html_list)
-                result = re.sub('(?<=>) | (?=<)', '', " ".join(modified_html))
-                self.wfile.write(
-                    bytes(str(result), 'UTF-8'))
-            else:  
-                self.wfile.write(
-                        bytes(str(response.text), 'UTF-8'))
+            response: Response = requests.get(url, headers=HEADERS)
+        except HTTPError as error:
+            print(
+                f"{get_time_stamp()} Request call was not successful, reason: {error}")
+        return response
 
-                
-        except Exception as err:
-            print(f"{get_time_stamp()} Something went wrong...{err}")
+    def append_TM(self, string:str):
+        """Function to append specified logo -> "TM"
+            to words match with specified regex 
+        Args:
+            string (str): target word
+        Returns:
+            str: modified word
+        """
+        try:
+            reg_ex = re.compile(r"^(\b\w{6}\b)|$", re.I)
+            match_string = reg_ex.match(string).group() if reg_ex.match(string) else ""
+            if match_string.isalpha():
+                return reg_ex.sub(f'{match_string}&#x2122;', string, count=1)
+        except RegexException:
+            print(
+                f"{get_time_stamp()} Regex error, invalid regular expression , reason: {error}")
+        return string
+
+    def modify_content_list(self, content_list: list[str]) -> list:
+        """Compile new list from html page contents
+            modifying targeted words
+        Args:
+            content_list (list[str]): original list of contents
+        Returns:
+            list: new modified list of contents
+        """
+        new_content_list = []
+        try:
+            for string in content_list:
+                if len(string) >= 6:
+                    string = self.append_TM(string)
+                string = self.replace_urls(string)
+                new_content_list.append(string)
+        except Exception as error:
+            print(
+                f"{get_time_stamp()} Request call was not successful, reason: {error}")
+        return new_content_list
+
+    def replace_urls(self, string):
+        if string == f'href="{TARGET_URL}">':
+            string = f'href="https://{HOST}:{PORT}">'
+        if string == 'href="favicon.ico">':
+            string = f'href="{TARGET_URL}/favicon.ico">'
+        if string == 'src="y18.gif"':
+            string = f'src="{TARGET_URL}/y18.gif"'
+        if string == 'src="s.gif"':
+            string = f'src="{TARGET_URL}/s.gif"'
+        if string == 'href="news.css?HTgGcPawXJ5mMASvvCyk">':
+            string = f'href="{TARGET_URL}/news.css?HTgGcPawXJ5mMASvvCyk">'
+        if string == "src='hn.js?HTgGcPawXJ5mMASvvCyk'>":
+            string = f'src="{TARGET_URL}/hn.js?HTgGcPawXJ5mMASvvCyk">'
+        return string
+
+    def modify_content(self, content):
+        try:
+            split_content = re.split('(<[^>]*>)', str(content))
+            content_list = " ".join(split_content).split(" ")
+            modified_content_list = self.modify_content_list(content_list)
+            result = re.sub('(?<=>) | (?=<)', '',
+                            " ".join(modified_content_list))
+            modified_content = bytes(str(result), 'UTF-8')
+        except Exception as error:
+            print(f"{get_time_stamp()} Could not modify the content, reason: {error}")
+        finally:
+            return modified_content
 
 
 if __name__ == "__main__":
