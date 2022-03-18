@@ -9,12 +9,12 @@ import requests  # type: ignore
 from re import error as RegexException
 from requests import Response, HTTPError
 
-
-TARGET_URL = "http://example.com"
+TARGET_URL = "https://news.ycombinator.com"
 HOST = '127.0.0.1'
 PORT = 8080
 HEADERS = {
     'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:99.0) Gecko/20100101 Firefox/99.0'}
+
 
 # timestamp function for logs.
 
@@ -42,53 +42,52 @@ class Handler(http.server.BaseHTTPRequestHandler):
             else:
                 print(f"{get_time_stamp()} Content was not modified.")
                 self.wfile.write(response.content)
-        except HTTPError as error:
+        except HTTPError as err:
             print(
-                f"{get_time_stamp()} Request call was not successful, reason: {error}")
+                f"{get_time_stamp()} Request call was not successful, reason: {err}")
 
     def handle_headers(self, content_type: str) -> None:
-        """Function to handle build and send headers back to the client
+        """Method builds and sends headers to the client
         """
         self.send_header('Content-Type', content_type)
         self.send_header('Proxy-Agent', 'Master Ultron')
         self.end_headers()
 
     def do_request(self) -> Response:
-        """Functions makes a request to defined TARGET_URL
-           and returns a Response object
+        """Methods implements Requests module to defined "TARGET_URL"
         Returns:
             Response: Response object
         """
+        response = Response
         url = f'{TARGET_URL}/{self.path[1:]}'
         try:
-            response: Response = requests.get(url, headers=HEADERS)
-        except HTTPError as error:
+            response = requests.get(url, headers=HEADERS)
+        except HTTPError as err:
             print(
-                f"{get_time_stamp()} Request call was not successful, reason: {error}")
-        return response
+                f"{get_time_stamp()} Request call was not successful, reason: {err}")
+        finally:
+            return response
 
     def split_content(self, content: str) -> list:
-        """Function to spli content to list of strings using regex pattern
+        """Method splits content to list of strings using regex pattern
         Args:
             content (str): Content of the response page
-
         Returns:
-            list: Splitted list of strings
+            list: Split list of strings
         """
+        content_list = []
         try:
             # split to list strings of the content using regex pattern and built-in Python module "re"
-            # pattern helps to separate the html tags from its child text           
-            content_splitted = re.split('(<[^>]*>)', content)
-            content_list = "".join(content_splitted).split(" ")
-            print(content_list)
+            # pattern helps to separate the html tags from its child text
+            content_split = re.split('(<[^>]*>)', content)
+            content_list = " ".join(content_split).split(" ")
         except Exception as error:
             print(f"{get_time_stamp()} Content splitting unsuccessful, reason: {error}")
         finally:
             return content_list
-    
+
     def modify_content_list(self, content_list: list[str]) -> list[str]:
-        """Compile new list from html page contents
-            modifying targeted words
+        """Method modifies list of strings from response content
         Args:
             content_list (list[str]): original list of contents
         Returns:
@@ -101,29 +100,36 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     string = self.append_TM(string)
                 string = self.replace_urls(string)
                 new_content_list.append(string)
-        except Exception as error:
+        except Exception as err:
             print(
-                f"{get_time_stamp()} Request call was not successful, reason: {error}")
+                f"{get_time_stamp()} Request call was not successful, reason: {err}")
         finally:
             return new_content_list
-    
+
     def compose_new_content(self, new_content_list) -> bytes:
+        """Methods composes a new content from modified strings and rest content
+        Args:
+            new_content_list (list): new content list with modified strings
+        Returns:
+            bytes: new composed content in bytes
+        """
+        new_content = bytes
         try:
             result = re.sub('(?<=>) | (?=<)', '',
                             " ".join(new_content_list))
             new_content = bytes(str(result), 'UTF-8')
-        except Exception as error:
-            print(f"{get_time_stamp()} Could not modify the content, reason: {error}")
+        except Exception as err:
+            print(f"{get_time_stamp()} Could not modify the content, reason: {err}")
         finally:
             return new_content
 
     def append_TM(self, string: str):
-        """Function to append TradeMark logo -> (&#x2122;)
+        """Method appends TradeMark logo -> (&#x2122;)
             to words match with specified regex
         Args:
-            string (str): target word
+            string (str): target string
         Returns:
-            str: modified word
+            str: modified string | original string
         """
         try:
             reg_ex = re.compile(r"^(\b\w{6}\b)|$", re.I)
@@ -131,19 +137,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
             match_string = match.group() if match is not None else str()
             if match_string.isalpha():
                 return reg_ex.sub(f'{match_string}&#x2122;', string, count=1)
-        except RegexException as error:
+        except RegexException as err:
             print(
-                f"{get_time_stamp()} Regex error, invalid regular expression , reason: {error}")
+                f"{get_time_stamp()} Regex error, invalid regular expression , reason: {err}")
         return string
 
     def replace_urls(self, url):
-        """Function to replace existing attributes
-            default URL values, to make sure static files served from
-            original source, not from localhost.
-
+        """Method replaces default URL values with source URL, 
+            to make sure static files served appropriately,
+            otherwise static files can be corrupted while rendering.
         Args:
-            string (str): URL string
-
+            url (str): URL string
         Returns:
             str: modified URL string
         """
@@ -160,6 +164,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if url == "src='hn.js?HTgGcPawXJ5mMASvvCyk'>":
             url = f'src="{TARGET_URL}/hn.js?HTgGcPawXJ5mMASvvCyk">'
         return url
+
 
 if __name__ == "__main__":
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
