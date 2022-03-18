@@ -4,13 +4,13 @@ import socketserver
 import ssl
 import sys
 import time
-import requests  # type: ignore
-from requests import Response, HTTPError
 import re
+import requests  # type: ignore
 from re import error as RegexException
+from requests import Response, HTTPError
 
 
-TARGET_URL = "https://news.ycombinator.com"
+TARGET_URL = "http://example.com"
 HOST = '127.0.0.1'
 PORT = 8080
 HEADERS = {
@@ -35,8 +35,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_response(response.status_code, response.reason)
         self.handle_headers(response.headers['content-type'])
         try:
-            if modified_content := self.modify_content(content=response.text):
-                self.wfile.write(modified_content)
+            split_content = self.split_content(content=response.text)
+            modified_content = self.modify_content_list(split_content)
+            if new_content := self.compose_new_content(modified_content):
+                self.wfile.write(new_content)
             else:
                 print(f"{get_time_stamp()} Content was not modified.")
                 self.wfile.write(response.content)
@@ -64,6 +66,56 @@ class Handler(http.server.BaseHTTPRequestHandler):
             print(
                 f"{get_time_stamp()} Request call was not successful, reason: {error}")
         return response
+
+    def split_content(self, content: str) -> list:
+        """Function to spli content to list of strings using regex pattern
+        Args:
+            content (str): Content of the response page
+
+        Returns:
+            list: Splitted list of strings
+        """
+        try:
+            # split to list strings of the content using regex pattern and built-in Python module "re"
+            # pattern helps to separate the html tags from its child text           
+            content_splitted = re.split('(<[^>]*>)', content)
+            content_list = "".join(content_splitted).split(" ")
+            print(content_list)
+        except Exception as error:
+            print(f"{get_time_stamp()} Content splitting unsuccessful, reason: {error}")
+        finally:
+            return content_list
+    
+    def modify_content_list(self, content_list: list[str]) -> list[str]:
+        """Compile new list from html page contents
+            modifying targeted words
+        Args:
+            content_list (list[str]): original list of contents
+        Returns:
+            list: new modified list of contents
+        """
+        new_content_list = []
+        try:
+            for string in content_list:
+                if len(string) >= 6:
+                    string = self.append_TM(string)
+                string = self.replace_urls(string)
+                new_content_list.append(string)
+        except Exception as error:
+            print(
+                f"{get_time_stamp()} Request call was not successful, reason: {error}")
+        finally:
+            return new_content_list
+    
+    def compose_new_content(self, new_content_list) -> bytes:
+        try:
+            result = re.sub('(?<=>) | (?=<)', '',
+                            " ".join(new_content_list))
+            new_content = bytes(str(result), 'UTF-8')
+        except Exception as error:
+            print(f"{get_time_stamp()} Could not modify the content, reason: {error}")
+        finally:
+            return new_content
 
     def append_TM(self, string: str):
         """Function to append TradeMark logo -> (&#x2122;)
@@ -109,55 +161,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
             url = f'src="{TARGET_URL}/hn.js?HTgGcPawXJ5mMASvvCyk">'
         return url
 
-    def modify_content_list(self, content_list: list[str]) -> list[str]:
-        """Compile new list from html page contents
-            modifying targeted words
-        Args:
-            content_list (list[str]): original list of contents
-        Returns:
-            list: new modified list of contents
-        """
-        new_content_list = []
-        try:
-            for string in content_list:
-                if len(string) >= 6:
-                    string = self.append_TM(string)
-                string = self.replace_urls(string)
-                new_content_list.append(string)
-        except Exception as error:
-            print(
-                f"{get_time_stamp()} Request call was not successful, reason: {error}")
-        return new_content_list
-
-    def modify_content(self, content: str) -> bytes:
-        """Main function in content modifying series
-        Args:
-            content (str): Content of the response, in unicode
-
-        Returns:
-            bytes: Modified content, in bytes
-        """
-        try:
-            # split to list strings of the content using regex pattern and built-in Python module "re"
-            # pattern helps to separate the html tags from its child text,
-            # so we could be able iterate over the list of strings of the html content and find target words
-            split_content = re.split('(<[^>]*>)', str(content))
-            content_list = " ".join(split_content).split(" ")
-            modified_content_list = self.modify_content_list(content_list)
-            result = re.sub('(?<=>) | (?=<)', '',
-                            " ".join(modified_content_list))
-            modified_content = bytes(str(result), 'UTF-8')
-        except Exception as error:
-            print(f"{get_time_stamp()} Could not modify the content, reason: {error}")
-        finally:
-            return modified_content
-
-
 if __name__ == "__main__":
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     try:
-        context.load_cert_chain(certfile='docs/cert.pem',
-                                keyfile='docs/cert_pkey.pem')
+        context.load_cert_chain(certfile='../../docs/cert.pem',
+                                keyfile='../../docs/cert_pkey.pem')
         print(f"{get_time_stamp()} Starting server...")
         time.sleep(.5)
         with socketserver.ThreadingTCPServer(("", PORT), Handler) as handler:
