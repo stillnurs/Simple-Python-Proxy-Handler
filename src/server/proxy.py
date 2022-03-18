@@ -17,6 +17,8 @@ HEADERS = {
     'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:99.0) Gecko/20100101 Firefox/99.0'}
 
 # timestamp function for logs.
+
+
 def get_time_stamp():
     return f"{HOST} - - [{str(datetime.datetime.fromtimestamp(time.time()).strftime('%d/%b/%Y %H:%M:%S'))}]"
 
@@ -73,8 +75,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         """
         try:
             reg_ex = re.compile(r"^(\b\w{6}\b)|$", re.I)
-            match_string = reg_ex.match(
-                string).group() if reg_ex.match(string) else ""
+            match = reg_ex.match(string) or None
+            match_string = match.group() if match is not None else str()
             if match_string.isalpha():
                 return reg_ex.sub(f'{match_string}&#x2122;', string, count=1)
         except RegexException as error:

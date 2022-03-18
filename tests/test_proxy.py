@@ -1,5 +1,5 @@
 import pytest
-
+import ssl
 #test TradeMark append function &#x2122;
 class TestHandler:
 
@@ -8,3 +8,5 @@ class TestHandler:
     def test_append_TM(self, handler, test_input, expected):
         assert handler.append_TM(self, test_input) 
         return expected
+
+    # @pytest.mark.parametrize("test_")
