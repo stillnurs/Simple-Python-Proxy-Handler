@@ -2,7 +2,7 @@
 
 ![Tests](https://github.com/stillnurs/Simple-Python-Proxy-Handler/actions/workflows/tests.yml/badge.svg)
 
-## Very basic proxy server requests handler using Python programming language
+## Very basic proxy server request handler using Python programming language
 
 ### This proxy handles specific URL only, by modifying website's the content.
 

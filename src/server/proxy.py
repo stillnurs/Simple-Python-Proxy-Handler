@@ -4,11 +4,11 @@ import socketserver
 import ssl
 import sys
 import time
-import requests
+import requests  # type: ignore
+from requests import Response, HTTPError
 import re
 from re import error as RegexException
-from requests.models import Response
-from requests.exceptions import HTTPError
+
 
 TARGET_URL = "https://news.ycombinator.com"
 HOST = '127.0.0.1'
