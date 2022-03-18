@@ -1,5 +1,5 @@
 import pytest
-from socket_server.proxy import Handler
+from src.socket_server.proxy import Handler
 
 
 @pytest.fixture(scope="class")

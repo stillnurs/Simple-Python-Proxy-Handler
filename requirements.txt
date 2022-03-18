@@ -1,1 +1,4 @@
-requests==2.27
+requests>=2.27.1
+
+pytest>=7.1.1
+setuptools>=58.1.0

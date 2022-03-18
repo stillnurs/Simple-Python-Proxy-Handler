@@ -68,7 +68,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         finally:
             return response
 
-    def split_content(self, content: str) -> list:
+    def split_content(self, content: str) -> list[str]:
         """Method splits content to list of strings using regex pattern
         Args:
             content (str): Content of the response page
@@ -113,7 +113,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         Returns:
             bytes: new composed content in bytes
         """
-        new_content = bytes
+        new_content = "".encode()
         try:
             result = re.sub('(?<=>) | (?=<)', '',
                             " ".join(new_content_list))
@@ -143,7 +143,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         return string
 
     def replace_urls(self, url):
-        """Method replaces default URL values with source URL, 
+        """Method replaces default URL values with source URL,
             to make sure static files served appropriately,
             otherwise static files can be corrupted while rendering.
         Args:
