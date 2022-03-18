@@ -17,8 +17,6 @@ HEADERS = {
     'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:99.0) Gecko/20100101 Firefox/99.0'}
 
 # timestamp function for logs.
-
-
 def get_time_stamp():
     return f"{HOST} - - [{str(datetime.datetime.fromtimestamp(time.time()).strftime('%d/%b/%Y %H:%M:%S'))}]"
 
@@ -26,10 +24,8 @@ def get_time_stamp():
 class Handler(http.server.BaseHTTPRequestHandler):
     """Request handler class
 
-        Serves to capture incoming request stream and sends back to client 
-
-        modified message from the targeted url.
-
+        Serves the client with identified http request
+        by modifying the outgoing response data.
     """
 
     def do_GET(self):
@@ -43,14 +39,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 print(f"{get_time_stamp()} Content was not modified.")
                 self.wfile.write(response.content)
         except HTTPError as error:
-            print(f"{get_time_stamp()} Request call was not successful, reason: {error}")
+            print(
+                f"{get_time_stamp()} Request call was not successful, reason: {error}")
 
-    def handle_headers(self, content_type):
+    def handle_headers(self, content_type: str) -> None:
+        """Function to handle build and send headers back to the client
+        """
         self.send_header('Content-Type', content_type)
         self.send_header('Proxy-Agent', 'Master Ultron')
         self.end_headers()
 
     def do_request(self) -> Response:
+        """Functions makes a request to defined TARGET_URL
+           and returns a Response object
+        Returns:
+            Response: Response object
+        """
         url = f'{TARGET_URL}/{self.path[1:]}'
         try:
             response: Response = requests.get(url, headers=HEADERS)
@@ -59,9 +63,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 f"{get_time_stamp()} Request call was not successful, reason: {error}")
         return response
 
-    def append_TM(self, string:str):
-        """Function to append specified logo -> "TM"
-            to words match with specified regex 
+    def append_TM(self, string: str):
+        """Function to append TradeMark logo -> (&#x2122;)
+            to words match with specified regex
         Args:
             string (str): target word
         Returns:
@@ -69,15 +73,41 @@ class Handler(http.server.BaseHTTPRequestHandler):
         """
         try:
             reg_ex = re.compile(r"^(\b\w{6}\b)|$", re.I)
-            match_string = reg_ex.match(string).group() if reg_ex.match(string) else ""
+            match_string = reg_ex.match(
+                string).group() if reg_ex.match(string) else ""
             if match_string.isalpha():
                 return reg_ex.sub(f'{match_string}&#x2122;', string, count=1)
-        except RegexException:
+        except RegexException as error:
             print(
                 f"{get_time_stamp()} Regex error, invalid regular expression , reason: {error}")
         return string
 
-    def modify_content_list(self, content_list: list[str]) -> list:
+    def replace_urls(self, url):
+        """Function to replace existing attributes
+            default URL values, to make sure static files served from
+            original source, not from localhost.
+
+        Args:
+            string (str): URL string
+
+        Returns:
+            str: modified URL string
+        """
+        if url == f'href="{TARGET_URL}">':
+            url = f'href="https://{HOST}:{PORT}">'
+        if url == 'href="favicon.ico">':
+            url = f'href="{TARGET_URL}/favicon.ico">'
+        if url == 'src="y18.gif"':
+            url = f'src="{TARGET_URL}/y18.gif"'
+        if url == 'src="s.gif"':
+            url = f'src="{TARGET_URL}/s.gif"'
+        if url == 'href="news.css?HTgGcPawXJ5mMASvvCyk">':
+            url = f'href="{TARGET_URL}/news.css?HTgGcPawXJ5mMASvvCyk">'
+        if url == "src='hn.js?HTgGcPawXJ5mMASvvCyk'>":
+            url = f'src="{TARGET_URL}/hn.js?HTgGcPawXJ5mMASvvCyk">'
+        return url
+
+    def modify_content_list(self, content_list: list[str]) -> list[str]:
         """Compile new list from html page contents
             modifying targeted words
         Args:
@@ -97,23 +127,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 f"{get_time_stamp()} Request call was not successful, reason: {error}")
         return new_content_list
 
-    def replace_urls(self, string):
-        if string == f'href="{TARGET_URL}">':
-            string = f'href="https://{HOST}:{PORT}">'
-        if string == 'href="favicon.ico">':
-            string = f'href="{TARGET_URL}/favicon.ico">'
-        if string == 'src="y18.gif"':
-            string = f'src="{TARGET_URL}/y18.gif"'
-        if string == 'src="s.gif"':
-            string = f'src="{TARGET_URL}/s.gif"'
-        if string == 'href="news.css?HTgGcPawXJ5mMASvvCyk">':
-            string = f'href="{TARGET_URL}/news.css?HTgGcPawXJ5mMASvvCyk">'
-        if string == "src='hn.js?HTgGcPawXJ5mMASvvCyk'>":
-            string = f'src="{TARGET_URL}/hn.js?HTgGcPawXJ5mMASvvCyk">'
-        return string
+    def modify_content(self, content: str) -> bytes:
+        """Main function in content modifying series
+        Args:
+            content (str): Content of the response, in unicode
 
-    def modify_content(self, content):
+        Returns:
+            bytes: Modified content, in bytes
+        """
         try:
+            # split to list strings of the content using regex pattern and built-in Python module "re"
+            # pattern helps to separate the html tags from its child text,
+            # so we could be able iterate over the list of strings of the html content and find target words
             split_content = re.split('(<[^>]*>)', str(content))
             content_list = " ".join(split_content).split(" ")
             modified_content_list = self.modify_content_list(content_list)
@@ -129,8 +154,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 if __name__ == "__main__":
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     try:
-        context.load_cert_chain(certfile='./cert.pem',
-                                keyfile='./cert_pkey.pem')
+        context.load_cert_chain(certfile='docs/cert.pem',
+                                keyfile='docs/cert_pkey.pem')
         print(f"{get_time_stamp()} Starting server...")
         time.sleep(.5)
         with socketserver.ThreadingTCPServer(("", PORT), Handler) as handler:
