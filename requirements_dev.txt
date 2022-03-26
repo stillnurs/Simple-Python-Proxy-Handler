@@ -3,3 +3,4 @@ pytest-cov==3.0.0
 flake8==4.0
 mypy==0.941
 tox==3.24.5
+beautifulsoup4==4.10.0

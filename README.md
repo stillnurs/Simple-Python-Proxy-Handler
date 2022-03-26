@@ -4,13 +4,11 @@
 
 ## Very basic proxy server request handler using Python programming language
 
-### This proxy handles specific URL only, by modifying website's the content.
+### This proxy handles specifically targeted URL only, by modifying website's the content.
 
 #### Replaces any found word's length equals to 6 with (™ "TradeMark") logo in the required website's content.
 
 - Clone the repo
 - $ cd /Proxy
-- $ python(3) ./src/server/proxy.py
-- Proceed to your [localhost:port] specified in the script.
-
-##### \*(n) - optional value
+- $ python[version(optional)] ./main.py [port]
+- Open your browser and proceed [localhost:port] specified in the script.
