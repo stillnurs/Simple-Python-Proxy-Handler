@@ -6,7 +6,7 @@
 
 ### This proxy handles specifically targeted URL only, by modifying website's the content.
 
-#### Appends (™ "TradeMark") logo if any string's length equals to 6.
+#### Task: To append (™ "TradeMark") logo if any string's length equals to 6.
 
 - Clone the repo
 - $ cd /Proxy
